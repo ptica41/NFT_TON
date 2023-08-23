@@ -1,0 +1,3 @@
+TOKEN = '5942502083:AAENGqEF3QXegQMhaa1pJOVDv6AmCtxzXqs'
+
+count = 300
