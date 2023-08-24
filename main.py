@@ -8,13 +8,11 @@ from bs4 import BeautifulSoup
 from aiogram import types, Dispatcher, Bot, executor
 from aiogram.dispatcher.filters import Text
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+
 
 from config import TOKEN
 
@@ -26,6 +24,11 @@ dp = Dispatcher(bot)
 run1 = False
 run2 = False
 bid = 0
+
+options = Options()
+options.add_argument('--headless')
+options.add_argument('--no-sandbox')
+options.add_argument('--disable-dev-shm-usage')
 
 
 @dp.message_handler(commands=['start_fragment'])
@@ -62,14 +65,14 @@ async def stop(message: types.Message):
 
 @dp.message_handler(commands=['start_getgems'])
 async def start(message: types.Message):
-    global run2, bid, URL2
+    global run2, bid, URL2, options
     if not run2:
         run2 = True
         await bot.send_message(message.chat.id, 'Парсинг площадки №2 запущен')
 
         while run2:
             try:
-                driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+                driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
                 driver.get(URL2)
                 driver.implicitly_wait(5)
                 content2 = driver.find_element(By.CSS_SELECTOR, 'a.NftPreview')
@@ -79,6 +82,7 @@ async def start(message: types.Message):
             except:
                 continue
 
+            driver.close()
             await asyncio.sleep(20)
     else:
         await bot.send_message(message.chat.id, 'Парсинг площадки №2 уже запущен')
