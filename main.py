@@ -2,66 +2,118 @@ import datetime
 import time
 import asyncio
 import json
+import requests
 
 from bs4 import BeautifulSoup
-import requests
 from aiogram import types, Dispatcher, Bot, executor
 from aiogram.dispatcher.filters import Text
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
 from config import TOKEN
 
-url1 = 'https://fragment.com/numbers?sort=price_asc&filter=sale'
-url2 = 'https://getgems.io/collection/EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N?filter=%7B"saleType"%3A"fix_price"%7D'
+URL1 = 'https://fragment.com/numbers?sort=price_asc&filter=sale'
+URL2 = 'https://getgems.io/collection/EQAOQdwdw8kGftJCSFgOErM1mBjYPe4DBPq8-AhF6vr9si5N?filter=%7B%22saleType%22%3A%22fix_price%22%7D'
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
-pause = True
-num = 300
+run1 = False
+run2 = False
+bid = 0
 
 
-@dp.message_handler(commands=['start'])
+@dp.message_handler(commands=['start_fragment'])
 async def start(message: types.Message):
-    global pause, num, url1, url2
-    pause = True
-    await bot.send_message(message.chat.id, 'Парсинг запущен')
+    global run1, bid, URL1
+    if not run1:
+        run1 = True
+        await bot.send_message(message.chat.id, 'Парсинг площадки №1 запущен')
 
-    while True:
-        content1 = requests.get(url1)
-        soup1 = BeautifulSoup(content1.text, 'lxml')
+        while run1:
+            content1 = requests.get(URL1)
+            soup = BeautifulSoup(content1.text, 'lxml')
 
-        try:
-            if int(soup1.find('div', class_='table-cell-value tm-value icon-before icon-ton').text) <= num:
-                await bot.send_message(message.chat.id, f'Время: {datetime.datetime.now().replace(microsecond=0)}')
-                await bot.send_message(message.chat.id,
-                                       'https://fragment.com' + soup1.find('a', class_='table-cell').attrs['href'])
-        except:
-            continue
+            try:
+                if float(soup.find('div', class_='table-cell-value tm-value icon-before icon-ton').text.replace(',', '.')) <= bid:
+                    await bot.send_message(message.chat.id, f'Время: {datetime.datetime.now().replace(microsecond=0)}')
+                    await bot.send_message(message.chat.id,
+                                           'https://fragment.com' + soup.find('a', class_='table-cell').attrs['href'])
+            except:
+                continue
 
-        await asyncio.sleep(10)
-        if not pause:
-            break
+            await asyncio.sleep(10)
+
+    else:
+        await bot.send_message(message.chat.id, 'Парсинг площадки №1 уже запущен')
 
 
-@dp.message_handler(commands=['stop'])
+@dp.message_handler(commands=['stop_fragment'])
 async def stop(message: types.Message):
-    global pause
-    pause = False
-    await bot.send_message(message.chat.id, 'Парсинг остановлен')
+    global run1
+    run1 = False
+    await bot.send_message(message.chat.id, 'Парсинг площадки №1 остановлен')
 
 
-@dp.message_handler(commands=['count'])
+@dp.message_handler(commands=['start_getgems'])
+async def start(message: types.Message):
+    global run2, bid, URL2
+    if not run2:
+        run2 = True
+        await bot.send_message(message.chat.id, 'Парсинг площадки №2 запущен')
+
+        while run2:
+            try:
+                driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+                driver.get(URL2)
+                driver.implicitly_wait(5)
+                content2 = driver.find_element(By.CSS_SELECTOR, 'a.NftPreview')
+                if float(content2.find_element(By.CLASS_NAME, 'CryptoPrice__amount').text.replace(',', '.')) <= bid:
+                    await bot.send_message(message.chat.id, f'Время: {datetime.datetime.now().replace(microsecond=0)}')
+                    await bot.send_message(message.chat.id, content2.get_attribute('href'))
+            except:
+                continue
+
+            await asyncio.sleep(20)
+    else:
+        await bot.send_message(message.chat.id, 'Парсинг площадки №2 уже запущен')
+
+
+@dp.message_handler(commands=['stop_getgems'])
+async def stop(message: types.Message):
+    global run2
+    run2 = False
+    await bot.send_message(message.chat.id, 'Парсинг площадки №2 остановлен')
+
+
+@dp.message_handler(commands=['info'])
 async def count(message: types.Message):
-    await bot.send_message(message.chat.id, 'Введи максимальную стоимость для парсинга 👇🏼')
+    global bid, run1, run2
+    await bot.send_message(message.chat.id, f'Максимальная стоимость 👉🏼 {bid} TON')
+    if run1:
+        await bot.send_message(message.chat.id, f'Площадка №1 запущена')
+    else:
+        await bot.send_message(message.chat.id, f'Площадка №1 остановлена')
+    if run2:
+        await bot.send_message(message.chat.id, f'Площадка №2 запущена')
+    else:
+        await bot.send_message(message.chat.id, f'Площадка №2 остановлена')
 
 
 @dp.message_handler(Text)
 async def set_count(message: types.Message):
-    global num
+    global bid
     try:
-        num = int(message.text)
+        bid = int(message.text)
     except:
-        num = 0
-    if num:
-        await bot.send_message(message.chat.id, f'Установлена максимальная стоимость < {num}')
+        bid = 0
+    if bid:
+        await bot.send_message(message.chat.id, f'Установлена максимальная стоимость 👉🏼 {bid} TON')
     else:
         await bot.send_message(message.chat.id, f'Это не число, попробуй еще раз')
 
