@@ -75,11 +75,12 @@ async def start(message: types.Message):
                 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
                 driver.get(URL2)
                 driver.implicitly_wait(5)
-                content2 = driver.find_element(By.CSS_SELECTOR, 'a.NftPreview')
+                content2 = driver.find_element(By.CLASS_NAME, 'NftItemContainer').find_element(By.TAG_NAME, 'a')
                 if float(content2.find_element(By.CLASS_NAME, 'CryptoPrice__amount').text.replace(',', '.')) <= bid:
                     await bot.send_message(message.chat.id, f'Время: {datetime.datetime.now().replace(microsecond=0)}')
                     await bot.send_message(message.chat.id, content2.get_attribute('href'))
-            except:
+            except Exception as e:
+                print(e)
                 continue
 
             driver.close()
