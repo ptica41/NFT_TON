@@ -83,7 +83,7 @@ async def start(message: types.Message):
                 print(e)
                 continue
 
-            driver.close()
+            driver.quit()
             await asyncio.sleep(20)
     else:
         await bot.send_message(message.chat.id, 'Парсинг площадки №2 уже запущен')
